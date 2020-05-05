@@ -9,6 +9,10 @@ import seaborn as sns
 from matplotlib.ticker import (MultipleLocator, FormatStrFormatter,
                                FixedLocator, IndexLocator, LinearLocator)
 from scipy.signal import savgol_filter
+from chirps_processing import return_nclusters
+from spectral_unmixing import interpolate_rainfall
+import pandas as pd
+
 
 
 colors_xkcd = ['very dark purple', "windows blue", "amber", "greyish",
@@ -57,35 +61,57 @@ def get_args():
 
     return args
 
-def plot_endmembers(endmember_array, rainfall_ts, unmixing_region):
+def plot_endmembers(args, endmember_array):
+
+    n_regional_clusters = return_nclusters(args)
 
 
-    xrange = range(len(rainfall_ts))
+    rainfall_ts_file = os.path.join(args.base_dir, 'saved_rainfall_regions', 'cluster_center_rainfall_ts_csvs',
+                                    '{}_rainfall_regions_nclusters_{}_normalized_monthly_ts.csv'.format(
+                                        args.unmixing_region, n_regional_clusters))
+    monthly_rainfall_ts = np.array(pd.read_csv(rainfall_ts_file, index_col=0))
 
-    fig, ax = plt.subplots()
-    ax1 = ax.twinx()
+    rainfall_ts = interpolate_rainfall(args, monthly_rainfall_ts)
 
-    # ax.plot(xrange[0:23], rainfall_ts[0:23], label = 'Monthly rainfall', linestyle = '-')
-    ax.plot(xrange, normalize(endmember_array[:, 0]), label = 'In phase', color = 'r')
-    ax.plot(xrange, normalize(endmember_array[:, 1]), label = 'Out of phase', color = 'g')
-    ax.plot(xrange, endmember_array[:, 2], label = 'Dark', color = 'b')
+
+    xrange = range(len(rainfall_ts[0]))
+
+    ticknames = ['01/2017', '01/2018', '01/2019']
+    minors = np.linspace(0, 69, 37)
+
+    fig, ax = plt.subplots(1, n_regional_clusters)
+
+    for ax_ix in range(n_regional_clusters):
+        twin_ax = ax[ax_ix].twinx()
+
+        # ax.plot(xrange[0:23], rainfall_ts[0:23], label = 'Monthly rainfall', linestyle = '-')
+        ax[ax_ix].plot(xrange, normalize(endmember_array[:, ax_ix*3]), label = 'In phase', color = 'r')
+        ax[ax_ix].plot(xrange, normalize(endmember_array[:, ax_ix*3 + 1]), label = 'Out of phase', color = 'g')
+        ax[ax_ix].plot(xrange, endmember_array[:, ax_ix*3 + 2], label = 'Dark', color = 'b')
+        ax[ax_ix].set_title(args.unmixing_region + ', region {}'.format(ax_ix))
+        ax[ax_ix].set_xlabel('Month')
+        ax[ax_ix].grid('on')
+        ax[ax_ix].legend(loc='upper left')
+
+        ax[ax_ix].set_xticklabels(ticknames)
+        ax[ax_ix].xaxis.set_major_locator(IndexLocator(23, 0))
+
+        ax[ax_ix].xaxis.set_minor_locator(FixedLocator(minors))
+        ax[ax_ix].tick_params(axis='x', which='both', length=2)
+
+        twin_ax.plot(xrange, rainfall_ts[ax_ix], linestyle = ':', color = cmap[0])
 
 
     # ax.set_ylabel('Average Monthly Rainfall (2009-2019)')
-    ax1.set_ylabel('Normalized EVI')
-    ax.set_xlabel('Month')
-    ax.grid('on')
-    ax.legend(loc = 'upper left')
-    ax.set_title(unmixing_region)
+    # ax1.set_ylabel('Normalized EVI')
+
     # ax1.legend(loc = 'upper right')
 
     # ticknames = ['09/2016', '09/2017', '09/2018']
-    ticknames = ['01/2017', '01/2018', '01/2019']
 
     # monthnames = ['J', 'F', 'M', 'A', 'M', 'J', 'J', 'A', 'S', 'O', 'N', 'D']
 
-    ax.set_xticklabels(ticknames)
-    ax.xaxis.set_major_locator(IndexLocator(23, 0))
+
     # ax.xaxis.set_major_locator(IndexLocator(12, 0))
 
 
@@ -93,14 +119,13 @@ def plot_endmembers(endmember_array, rainfall_ts, unmixing_region):
     # ax.set_xticks(np.linspace(0, 23, 12))
 
 
-    minors = np.linspace(0, 69, 37)
+
     # print(minors)
     #
-    ax.xaxis.set_minor_locator(FixedLocator(minors))
-    ax.tick_params(axis = 'x', which='both', length=2)
 
-    plt.savefig('/Users/terenceconlon/Documents/Columbia - Spring 2020/presentations/figures_for_presentations'
-                '/endmembers_only_plotting_unmixing_region_{}.png'.format(unmixing_region))
+    #
+    # plt.savefig('/Users/terenceconlon/Documents/Columbia - Spring 2020/presentations/figures_for_presentations'
+    #             '/endmembers_only_plotting_unmixing_region_{}.png'.format(unmixing_region))
 
     plt.show()
 

@@ -1,15 +1,18 @@
-spectral_unmixing: True
-calc_new_abundance_map: False
-save_abundance_map: True
 
+unmixing_region: 'ethiopia'
+
+rainfall_cluster: False
+rainfall_cluster_plotting: False
+
+spectral_unmixing: True
+calc_new_abundance_map: True
 unmixing_method: 'fcls'
-unmixing_region: 'uganda' #either fresno or amhara
 num_samples: 20000
-num_clusters: 700 #800
+num_clusters: 1000 #800
 pca_components: 4
 
-load_existing_endmembers: True
-plotting_endmembers: True
+calculate_new_endmembers: False
+plotting_endmembers: False
 outphase_endmember_type: 'single' # either single or double
 
 irrig_prediction: False
@@ -17,20 +20,28 @@ prediction_method: endmember # either endmember or baseline
 baseline_prediction_shift: False
 equal_training_fracs: True
 train_size: 0.8
-train_region: 'fresno' #either fresno, amhara, or both
-test_region:  'fresno' #either fresno or amhara
+train_region: 'both' #either fresno, amhara, catalonia, or ...
+test_region:  'catalonia' #either fresno or amhara
 
 
 base_dir: '/Volumes/sel_external/irrigation_detection'
-#evi_img_filename: 'evi_{}_16day_2016257_2019241_250m.tif'
 evi_img_filename: 'evi_{}_16day_2017001_2020001_250m.tif'
 
 start_month_year: '01-2017'
 end_month_year: '12-2019'
 
 amhara_epsg: 32637
+ethiopia_epsg: 32637
 uganda_epsg: 32636
 fresno_epsg: 32610
+catalonia_epsg: 32631
+
+ethiopia_rainfall_nclusters: 3
+amhara_rainfall_nclusters: 1
+catalonia_rainfall_nclusters: 1
+uganda_rainfall_nclusters: 2
+fresno_rainfall_nclusters: 1
+
 
 shuffle: True
 random_seed: 7

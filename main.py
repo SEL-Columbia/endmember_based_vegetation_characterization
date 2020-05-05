@@ -4,6 +4,7 @@ from dataloader import *
 from sklearn.ensemble import RandomForestClassifier
 from sklearn.metrics import confusion_matrix
 from plotting import *
+from chirps_processing import *
 
 def get_args():
     parser = argparse.ArgumentParser(
@@ -27,34 +28,39 @@ if __name__ == '__main__':
 
     args = get_args()
 
-    interpolate_rainfall(args)
+    # Cluster rainfall timeseries and create rainfall region shapefiles
+    if args.rainfall_cluster:
+        cluster_rainfall(args)
 
+    # Plot rainfall region timeseries and shapefiles
+    if args.rainfall_cluster_plotting:
+        rainfall_region_plotting(args)
+
+
+    # Endmember extraction and abundance map creation
     if args.spectral_unmixing:
         print('Load EVI Image')
 
-        with rasterio.open(os.path.join(args.base_dir, 'imagery', 'modis',
-                                        args.evi_img_filename.format(args.unmixing_region))) as src:
-            evi_img = src.read()
-            img_meta = src.meta
+        img_src =  rasterio.open(os.path.join(args.base_dir, 'imagery', 'modis',
+                            args.evi_img_filename.format(args.unmixing_region)))
 
-        save_file_endmembers = os.path.join(args.base_dir, 'saved_endmembers', args.unmixing_region,
-                                            'extracted_endmembers_{}_outphasetype_{}_nclusters_{}_nsamples_{}.csv'.format(
-                                                args.unmixing_region, args.outphase_endmember_type,
-                                                args.num_clusters, args.num_samples))
-        if not args.load_existing_endmembers:
-            print('Saving New Endmembers')
-            generate_endmembers(args, evi_img, save_file_endmembers)
+
+            # evi_img = src.read()
+            # img_meta = src.meta
 
         print('Loading Endmembers')
-        endmember_array = np.array(pd.read_csv(save_file_endmembers, index_col=0, header=0))
+        endmember_array = return_endmembers(args, img_src)
+
 
         if args.plotting_endmembers:
-            rainfall_ts = interpolate_rainfall(args)
-            plot_endmembers(endmember_array, rainfall_ts, args.unmixing_region)
+            plot_endmembers(args, endmember_array)
 
         if args.calc_new_abundance_map:
             print('Calculating and Saving Abundance Map')
-            spectral_unmixing_main(args, evi_img, img_meta, endmember_array, args.unmixing_method)
+            spectral_unmixing_main(args, img_src, endmember_array, args.unmixing_method)
+
+
+
 
     if args.irrig_prediction:
         print('Predicting Irrigation')

@@ -25,6 +25,23 @@ def load_amhara_polygons(args):
 
     return irrig_poly_list, nonirrig_poly_list
 
+def load_catalonia_polygons(args):
+    full_polys_path = os.path.join(args.base_dir, 'shapefiles_and_templates', 'catalonia',
+                                   'sigpac_catalonia_3_ha_min.shp')
+
+    all_polys = gpd.read_file(full_polys_path)
+
+    irrig_shps = all_polys[(all_polys['sr'] == 100) & (all_polys['us'] == 'TA') & ((all_polys['id_com'] == '9') |
+                                                                                   (all_polys['id_com'] == '22') |
+                                                                                   (all_polys['id_com'] == '33') |
+                                                                                   (all_polys['id_com'] == '23') ) ]
+    nonirrig_shps = all_polys[(all_polys['sr'] == 0) & (all_polys['us'] == 'TA')]
+
+    irrig_poly_list = [irrig_shps['geometry'].iloc[i] for i in range(len(irrig_shps))]
+    nonirrig_poly_list = [nonirrig_shps['geometry'].iloc[i] for i in range(len(nonirrig_shps))]
+
+    return irrig_poly_list, nonirrig_poly_list
+
 def load_fresno_polygons(args):
     crop_labels = ['G', 'R', 'F', 'P', 'T', 'D', 'C', 'V', 'I', 'NC', 'NV', 'NR', 'NB']
 
@@ -148,12 +165,16 @@ class DataGenerator():
 
     def return_data(self):
 
-        fresno_irrig_poly_list, fresno_nonirrig_poly_list = load_fresno_polygons(self.args)
         amhara_irrig_poly_list, amhara_nonirrig_poly_list = load_amhara_polygons(self.args)
+        catalonia_irrig_poly_list, catalonia_nonirrig_poly_list = load_catalonia_polygons(self.args)
+        fresno_irrig_poly_list, fresno_nonirrig_poly_list = load_fresno_polygons(self.args)
 
 
         X_train_fresno, X_val_fresno, y_train_fresno, y_val_fresno = return_polygon_pixels(
             self.args, 'fresno', fresno_irrig_poly_list, fresno_nonirrig_poly_list)
+
+        X_train_catalonia, X_val_catalonia, y_train_catalonia, y_val_catalonia = return_polygon_pixels(
+            self.args, 'catalonia', catalonia_irrig_poly_list, catalonia_nonirrig_poly_list)
 
 
         X_train_amhara, X_val_amhara, y_train_amhara, y_val_amhara = return_polygon_pixels(
@@ -167,6 +188,12 @@ class DataGenerator():
         elif self.args.train_region == 'amhara':
             X_train = X_train_amhara
             y_train = y_train_amhara
+
+        elif self.args.train_region == 'catalonia':
+            X_train = X_train_catalonia
+            y_train = y_train_catalonia
+
+
 
         elif self.args.train_region == 'both':
             if self.args.equal_training_fracs:
@@ -191,6 +218,10 @@ class DataGenerator():
         elif self.args.test_region == 'amhara':
             X_val = X_val_amhara
             y_val = y_val_amhara
+
+        elif self.args.test_region == 'catalonia':
+            X_val = X_val_catalonia
+            y_val = y_val_catalonia
 
 
 
