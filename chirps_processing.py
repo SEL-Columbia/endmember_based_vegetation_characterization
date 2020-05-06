@@ -41,60 +41,6 @@ def normalize(M):
     else:
         return Mn / (maxVal-minVal)
 
-def return_shp_file(region_name):
-
-    if region_name == 'T10_centralvalley':
-
-        all_regions_shp = gpd.read_file('/Users/terenceconlon/Documents/Columbia - Spring 2020/satellite_imagery/'
-                                      'california_data/shape_files/CA_climate_zones_epsg_4326.shp')
-        region_shape = all_regions_shp[all_regions_shp['BZone'] == '13']
-        region_shp_list = [region_shape['geometry'].iloc[i] for i in range(len(region_shape))]
-
-
-    elif region_name == 'amhara':
-        epsg_num = 4326
-        all_regions_shp = gpd.read_file('/Volumes/sel_external/irrigation_detection/ethiopia_shapefiles/'
-                                      'eth_admbnda_adm1_csa_20160121.shp')
-        region_shape = all_regions_shp[all_regions_shp['admin1Name'] == 'Amhara'].to_crs(({'init': 'epsg:{}'.format(epsg_num)}))
-        region_shp_list = [region_shape['geometry'].iloc[i] for i in range(len(region_shape))]
-
-    elif region_name == 'uganda':
-        region_shape = gpd.read_file('/Volumes/sel_external/uganda_shapefiles/UGA_outline_SHP/UGA_outline_epsg4326.shp')
-        region_shp_list = [region_shape['geometry'].iloc[i] for i in range(len(region_shape))]
-
-    elif region_name == 'catalonia':
-        region_shape = gpd.read_file('/Volumes/sel_external/irrigation_detection/shapefiles_and_templates/catalonia/'
-                                   'catalonia.shp')
-        region_shp_list = [region_shape['geometry'].iloc[i] for i in range(len(region_shape))]
-
-    elif region_name == 'ethiopia':
-        epsg_num = 4326
-        region_shape = gpd.read_file('/Volumes/sel_external/irrigation_detection/shapefiles_and_templates/'
-                                        'ethiopia_shape_files/eth_admbnda_adm0_csa_itos_20160121.shp').to_crs(
-            ({'init': 'epsg:{}'.format(epsg_num)}))
-
-        region_shp_list = [region_shape['geometry'].iloc[i] for i in range(len(region_shape))]
-
-    elif region_name == 'ethiopia_northwest':
-        epsg_num = 4326
-        region_shape = gpd.read_file('/Volumes/sel_external/irrigation_detection/shapefiles_and_templates/'
-                                     'ethiopia_shape_files/eth_region_northwest.shp').to_crs(
-            ({'init': 'epsg:{}'.format(epsg_num)}))
-
-        region_shp_list = [region_shape['geometry'].iloc[i] for i in range(len(region_shape))]
-
-
-    elif region_name == 'ethiopia_southeast':
-        epsg_num = 4326
-        region_shape = gpd.read_file('/Volumes/sel_external/irrigation_detection/shapefiles_and_templates/'
-                                     'ethiopia_shape_files/eth_region_southeast.shp').to_crs(
-            ({'init': 'epsg:{}'.format(epsg_num)}))
-
-        region_shp_list = [region_shape['geometry'].iloc[i] for i in range(len(region_shape))]
-
-
-
-    return region_shp_list
 
 def return_nclusters(args):
 
@@ -128,8 +74,6 @@ def rainfall_region_plotting(args):
     polygon_list = [(cluster_polygons['geometry'].iloc[i], cluster_polygons['pixelvalue'].iloc[i])
                      for i in range(len(cluster_polygons))]
 
-    print(polygon_list)
-
     # Set plotting parameters
     colors_xkcd = ['very dark purple', "amber", "windows blue",
                    "faded green", "pumpkin orange", "dusty purple", "greyish", 'pastel blue', "darkish red"]
@@ -162,6 +106,7 @@ def rainfall_region_plotting(args):
 
 def cluster_rainfall(args):
 
+    # Return the number of regional clusters for this area of interest
     n_clusters = return_nclusters(args)
 
     in_file = os.path.join(args.base_dir, 'chirps', 'clipped_regions_monthly',
@@ -169,21 +114,18 @@ def cluster_rainfall(args):
 
     with rasterio.open(in_file, 'r') as src:
         img = src.read()
-        meta = src.meta
 
-
+    # Reshape and normalize rainfall timeseries
     rainfall_ts = np.transpose(np.reshape(img, (img.shape[0], img.shape[1]*img.shape[2])))
-
     for i in range(len(rainfall_ts)):
         rainfall_ts[i] = normalize(rainfall_ts[i])
 
+    # Only take non-zero valued timeseries
     zero_indices = np.mean(rainfall_ts, axis=1) != 0
     rainfall_ts = rainfall_ts[zero_indices]
 
-
+    # Set up a clustering model and cluster the raindfall timeseries
     kmeans = KMeans(n_clusters=n_clusters, random_state=0).fit(rainfall_ts)
-
-
     cluster_centers = kmeans.cluster_centers_
 
     out_csv_filename = os.path.join(args.base_dir, 'saved_rainfall_regions', 'cluster_center_rainfall_ts_csvs',
@@ -196,16 +138,18 @@ def cluster_rainfall(args):
 
     img_rainfall_preds = np.zeros((img.shape[1], img.shape[2])).astype(np.int16)
 
+    # Assign each rainfall timeseries to a cluster
     for i in range(img.shape[1]):
         for j in range(img.shape[2]):
             if np.mean(img[:, i, j]) != 0:
                 img_rainfall_preds[i, j] = kmeans.predict([img[:, i, j]]) + 1
 
+    # Save the outputted polygons
     create_polygons(args, src, img_rainfall_preds, n_clusters)
 
 def create_polygons(args, src, img_rainfall_preds, n_clusters):
 
-
+    # Get the index for the clustered polygons
     unique_values = np.unique(img_rainfall_preds)
     nonzero_unique_values = unique_values[unique_values != 0]
 
@@ -220,6 +164,7 @@ def create_polygons(args, src, img_rainfall_preds, n_clusters):
                            '{}_rainfall_regions_nclusters_{}_raw.shp'.format(args.unmixing_region,
                                                                          n_clusters))
 
+    # Save the area covered by the clusters as shapefiles
     with fiona.open(outfile, 'w', 'ESRI Shapefile', shp_schema, src.crs) as shp:
         for pixel_value in nonzero_unique_values:
             polygons = [shape(geom) for geom, value in shapes
@@ -230,6 +175,7 @@ def create_polygons(args, src, img_rainfall_preds, n_clusters):
                 'properties': {'pixelvalue': int(pixel_value)}
             })
 
+    # Clean the polygons list (remove polygons less than 10000 km2')
     cleaned_polygon_list = polygon_cleaning(args, outfile, n_clusters)
 
     return cleaned_polygon_list
@@ -238,6 +184,7 @@ def polygon_cleaning(args, infile, n_clusters):
 
     poly_file = gpd.read_file(infile)
 
+    # Select valid polygons
     multipolys = poly_file[poly_file['pixelvalue'] != 0]
 
     small_poly_list = []
@@ -248,6 +195,7 @@ def polygon_cleaning(args, infile, n_clusters):
         polygons = multipolys['geometry'].iloc[i]
 
         for j in polygons:
+            # Small polygons have an area less than 10000 km2
             if j.area <1:
                 small_poly_list.append((j, value))
             else:
@@ -255,14 +203,14 @@ def polygon_cleaning(args, infile, n_clusters):
 
     new_poly_list = []
 
+    # Assign values in small polygons to the value of the nearest large polygon
     for geom, value in small_poly_list:
         distances_to_large_polys = [geom.centroid.distance(large_geom) for (large_geom, large_value)
                                     in large_poly_list]
         new_value = large_poly_list[int(np.argmin(distances_to_large_polys))][1]
-
         new_poly_list.append((geom, new_value))
 
-
+    # Add the large polygons to the new polygon list
     new_poly_list.extend([poly for poly in large_poly_list])
 
     shp_schema = {
@@ -270,6 +218,7 @@ def polygon_cleaning(args, infile, n_clusters):
         'properties': {'pixelvalue': 'int'}
     }
 
+    # Collect cluster polygons
     polygon_list = []
     for pixel_value in range(1, n_clusters+1):
         polygons = [poly[0] for poly in new_poly_list if poly[1] == pixel_value]
@@ -279,7 +228,7 @@ def polygon_cleaning(args, infile, n_clusters):
     outfile = os.path.join(args.base_dir,  'saved_rainfall_regions',  'clean_regions',
                            '{}_rainfall_regions_nclusters_{}_clean.shp'.format(args.unmixing_region,
                                                                          n_clusters))
-
+    # Save cleaned polygons to out file
     with fiona.open(outfile, 'w', 'ESRI Shapefile', shp_schema, poly_file.crs) as shp:
         for union in polygon_list:
             shp.write({
@@ -287,13 +236,16 @@ def polygon_cleaning(args, infile, n_clusters):
                 'properties': {'pixelvalue': int(union[1])}
             })
 
+
 def load_clip_average_and_save_data(args):
     strt_dt = datetime.date(2009, 1, 15)
     end_dt = datetime.date(2019, 12, 15)
 
-    chirps_dir = '/Volumes/sel_external/irrigation_detection/chirps/global_monthly/individual_images'
+    # Load all saved CHIRPS files
+    chirps_dir = os.path.join(args.base_dir, '/chirps/global_monthly/individual_images')
     all_files = glob.glob(chirps_dir + '/*.tif')
 
+    # Select relevant shapefile
     chirps_region = 'catalonia'
     shapefile = glob.glob(os.path.join(args.base_dir, 'shapefiles_and_templates', chirps_region,
                                        '{}.shp'.format(chirps_region)))[0]
@@ -314,12 +266,14 @@ def load_clip_average_and_save_data(args):
         year_ix = int(np.floor_divide(ix, 12))
         month_ix = int(np.remainder(ix, 12))
 
+        # Mask the CHIRPS files to the shapefiles
         src = rasterio.open(file)
         img_clipped, img_meta = mask(src, shp_list, crop=True)
 
         rainfall_ts[year_ix, month_ix] = np.mean(img_clipped)
 
-    out_file = os.path.join('/Volumes/sel_external/irrigation_detection/chirps/monthly_region_averages',
+    # Save the average rainfall timeseries to an .csv
+    out_file = os.path.join(args.base_dir, '/chirps/monthly_region_averages',
                             'monthly_average_chirps_{}_{}_{}.csv'.format(
                                 chirps_region, date_tuple_list[0], date_tuple_list[-1]))
 
@@ -328,6 +282,7 @@ def load_clip_average_and_save_data(args):
     out_df.to_csv(out_file)
 
     print('Crop and save average monthly rainfall tif')
+    # Will need to change the rows and cols on a case-by-case basis
     rows = 48
     cols = 64
     rainfall_averages = np.zeros((12, rows, cols)).astype(np.float32)
@@ -344,9 +299,11 @@ def load_clip_average_and_save_data(args):
 
         rainfall_averages[ix] = np.mean(rainfall_by_month, axis=-1)
 
+    # Update meta
     chirps_meta.update({'count': '12', 'height': rows, 'width': cols, 'nodata': '0', 'transform': trans})
     outfile = os.path.join(chirps_dir, 'chirps_{}_monthly_rainfall_averages_2009_2020_mm.tif').format(chirps_region)
 
+    # Write out the average monthly rainfall tif
     with rasterio.open(outfile, 'w', **chirps_meta) as dest:
         dest.write(rainfall_averages)
 

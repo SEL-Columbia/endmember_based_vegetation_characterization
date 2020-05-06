@@ -22,7 +22,7 @@ sns.set_palette(sns.xkcd_palette(colors_xkcd))
 # sns.set_style("whitegrid")
 # sns.set_style("white")
 
-
+# Copy normalize function to precent circular imports
 def normalize(M):
     """
     Normalizes M to be in range [0, 1].
@@ -44,28 +44,13 @@ def normalize(M):
     else:
         return Mn / (maxVal-minVal)
 
-def get_args():
-    parser = argparse.ArgumentParser(
-        description= 'Predict irrigation presence from abundance maps')
-
-    parser.add_argument('--training_params_filename',
-                        type=str,
-                        default='params.yaml',
-                        help='Filename defining model configuration')
-
-    args = parser.parse_args()
-    config = yaml.load(open(args.training_params_filename))
-    for k, v in config.items():
-        args.__dict__[k] = v
-
-
-    return args
-
 def plot_endmembers(args, endmember_array):
 
+    # Return number of regional clusters
     n_regional_clusters = return_nclusters(args)
 
 
+    # Load and interpolate rainfall
     rainfall_ts_file = os.path.join(args.base_dir, 'saved_rainfall_regions', 'cluster_center_rainfall_ts_csvs',
                                     '{}_rainfall_regions_nclusters_{}_normalized_monthly_ts.csv'.format(
                                         args.unmixing_region, n_regional_clusters))
@@ -74,8 +59,8 @@ def plot_endmembers(args, endmember_array):
     rainfall_ts = interpolate_rainfall(args, monthly_rainfall_ts)
 
 
+    # Set up variables for plotting
     xrange = range(len(rainfall_ts[0]))
-
     ticknames = ['01/2017', '01/2018', '01/2019']
     minors = np.linspace(0, 69, 37)
 
@@ -102,34 +87,13 @@ def plot_endmembers(args, endmember_array):
         twin_ax.plot(xrange, rainfall_ts[ax_ix], linestyle = ':', color = cmap[0])
 
 
-    # ax.set_ylabel('Average Monthly Rainfall (2009-2019)')
-    # ax1.set_ylabel('Normalized EVI')
-
-    # ax1.legend(loc = 'upper right')
-
-    # ticknames = ['09/2016', '09/2017', '09/2018']
-
-    # monthnames = ['J', 'F', 'M', 'A', 'M', 'J', 'J', 'A', 'S', 'O', 'N', 'D']
-
-
-    # ax.xaxis.set_major_locator(IndexLocator(12, 0))
-
-
-    # ax.set_xticklabels(monthnames)
-    # ax.set_xticks(np.linspace(0, 23, 12))
-
-
-
-    # print(minors)
-    #
-
-    #
-    # plt.savefig('/Users/terenceconlon/Documents/Columbia - Spring 2020/presentations/figures_for_presentations'
-    #             '/endmembers_only_plotting_unmixing_region_{}.png'.format(unmixing_region))
-
     plt.show()
 
 def plot_pixel_means(args, region):
+
+    ## This function plots the irrig/non-irrig pixel means for uploaded polygons to inspect average phenologies
+    # Here irrigation = out of phase vegetation growth
+
     # amhara_irrig_poly_list, amhara_nonirrig_poly_list = load_amhara_polygons(args)
     irrig_poly_list, nonirrig_poly_list = load_fresno_polygons(args)
 
@@ -146,34 +110,27 @@ def plot_pixel_means(args, region):
         irrig_pixels       = np.moveaxis(irrig_pixels, 0, -1)
         nonirrig_pixels    = np.moveaxis(nonirrig_pixels, 0, -1)
 
+    # Flatten maps for plotting
     irrig_ts_flat = np.reshape(irrig_pixels, (irrig_pixels.shape[0] * irrig_pixels.shape[1], irrig_pixels.shape[2]))
     nonirrig_ts_flat = np.reshape(nonirrig_pixels, (nonirrig_pixels.shape[0] * nonirrig_pixels.shape[1],
                                                     nonirrig_pixels.shape[2]))
 
-    print(irrig_ts_flat.shape)
 
-
+    # Only present phenologies for pixels that are within the polygons
     irrig_ts_flat    = irrig_ts_flat[~np.any(irrig_ts_flat==nanvalue, axis = 1)] #.any(axis=1)
     nonirrig_ts_flat = nonirrig_ts_flat[~np.any(nonirrig_ts_flat== nanvalue, axis=1)] #.any(axis=1)]
 
-    print(irrig_ts_flat.shape)
 
-
+    # Calculate means for plotting
     irrig_array_mean    = np.mean(irrig_ts_flat, axis=0)
     nonirrig_array_mean = np.mean(nonirrig_ts_flat, axis=0)
 
+    # Plot
     fig, ax = plt.subplots()
-
     ax.plot(range(len(irrig_array_mean)), irrig_array_mean, label = 'Irrigated')
     ax.plot(range(len(nonirrig_array_mean)), nonirrig_array_mean, label = 'Non Irrigated')
     ax.grid()
     ax.legend()
 
     plt.show()
-
-if __name__ == '__main__':
-
-    args =  get_args()
-    # plot_pixel_means(args, 'fresno')
-    # plot_endmembers()
 

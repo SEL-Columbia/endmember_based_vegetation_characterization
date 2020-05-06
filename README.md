@@ -1,1 +1,1 @@
-# irrigation_detection
+# vegetation_detection

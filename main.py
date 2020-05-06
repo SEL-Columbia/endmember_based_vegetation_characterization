@@ -6,6 +6,7 @@ from sklearn.metrics import confusion_matrix
 from plotting import *
 from chirps_processing import *
 
+# Load in parameters from params.yaml
 def get_args():
     parser = argparse.ArgumentParser(
         description= 'Predict irrigation presence from abundance maps')
@@ -41,12 +42,9 @@ if __name__ == '__main__':
     if args.spectral_unmixing:
         print('Load EVI Image')
 
+        # Load image
         img_src =  rasterio.open(os.path.join(args.base_dir, 'imagery', 'modis',
                             args.evi_img_filename.format(args.unmixing_region)))
-
-
-            # evi_img = src.read()
-            # img_meta = src.meta
 
         print('Loading Endmembers')
         endmember_array = return_endmembers(args, img_src)
@@ -68,20 +66,18 @@ if __name__ == '__main__':
         print('Loading Data')
         X_train, X_val, y_train, y_val = dataloader.return_data()
 
-
+        # Create classifier
         forest = RandomForestClassifier(n_estimators=100, random_state=0, max_depth=2, verbose=True,
                                         n_jobs=3, class_weight='balanced')
 
 
 
-
+        print('Fit classifier')
         forest.fit(X_train, y_train)
-        print(forest.feature_importances_)
+        print('Importance of features for prediction: {}'.format(forest.feature_importances_))
 
-
-        print("Accuracy on training set, 1: {:.3f}".format(forest.score(X_train, y_train)))
-        print("Accuracy on validation set, 1: {:.3f}".format(forest.score(X_val, y_val)))
-
+        print("Accuracy on training set: {:.3f}".format(forest.score(X_train, y_train)))
+        print("Accuracy on validation set: {:.3f}".format(forest.score(X_val, y_val)))
 
         y_val_predicts = forest.predict(X_val)
         cf_matrix_val = confusion_matrix(y_val, y_val_predicts)

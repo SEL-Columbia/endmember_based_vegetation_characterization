@@ -20,6 +20,8 @@ dependencies:
 - scikit-learn
 - google-cloud-storage
 - cvxopt
+- descartes
+- scipy
 
 - pip:
     - pysptools

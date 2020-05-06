@@ -11,7 +11,7 @@ num_samples: 20000
 num_clusters: 1000 #800
 pca_components: 4
 
-calculate_new_endmembers: False
+calculate_new_endmembers: True
 plotting_endmembers: False
 outphase_endmember_type: 'single' # either single or double
 
@@ -24,7 +24,7 @@ train_region: 'both' #either fresno, amhara, catalonia, or ...
 test_region:  'catalonia' #either fresno or amhara
 
 
-base_dir: '/Volumes/sel_external/irrigation_detection'
+base_dir: '/Volumes/sel_external/vegetation_detection'
 evi_img_filename: 'evi_{}_16day_2017001_2020001_250m.tif'
 
 start_month_year: '01-2017'

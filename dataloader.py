@@ -12,6 +12,9 @@ import matplotlib.pyplot as plt
 
 
 def load_amhara_polygons(args):
+    # Load irrigated and non-irrigated polygons for Amhara.
+    # Here, these correspond to in phase and out of phase vegetation growth
+
     irrig_polys_path = os.path.join(args.base_dir, 'shapefiles_and_templates', 'irrigation_presence_polygons',
                                     'ethiopia_irrigated_polygons.shp')
     nonirrig_polys_path = os.path.join(args.base_dir, 'shapefiles_and_templates', 'irrigation_presence_polygons',
@@ -26,15 +29,19 @@ def load_amhara_polygons(args):
     return irrig_poly_list, nonirrig_poly_list
 
 def load_catalonia_polygons(args):
+    # Load irrigated and non-irrigated polygons for Catalonia.
+    # Here, these correspond to in phase and out of phase vegetation growth
+
     full_polys_path = os.path.join(args.base_dir, 'shapefiles_and_templates', 'catalonia',
                                    'sigpac_catalonia_3_ha_min.shp')
 
     all_polys = gpd.read_file(full_polys_path)
 
+    # Only select irrigation shapefiles for regions where we know irrigation allows for out of phase vegetation growth.
     irrig_shps = all_polys[(all_polys['sr'] == 100) & (all_polys['us'] == 'TA') & ((all_polys['id_com'] == '9') |
                                                                                    (all_polys['id_com'] == '22') |
                                                                                    (all_polys['id_com'] == '33') |
-                                                                                   (all_polys['id_com'] == '23') ) ]
+                                                                                   (all_polys['id_com'] == '23'))]
     nonirrig_shps = all_polys[(all_polys['sr'] == 0) & (all_polys['us'] == 'TA')]
 
     irrig_poly_list = [irrig_shps['geometry'].iloc[i] for i in range(len(irrig_shps))]
@@ -43,8 +50,10 @@ def load_catalonia_polygons(args):
     return irrig_poly_list, nonirrig_poly_list
 
 def load_fresno_polygons(args):
-    crop_labels = ['G', 'R', 'F', 'P', 'T', 'D', 'C', 'V', 'I', 'NC', 'NV', 'NR', 'NB']
+    # Load irrigated and non-irrigated polygons for Fresno.
+    # Here, these correspond to in phase and out of phase vegetation growth
 
+    crop_labels = ['G', 'R', 'F', 'P', 'T', 'D', 'C', 'V', 'I', 'NC', 'NV', 'NR', 'NB']
     irrig_polys_path = os.path.join(args.base_dir, 'shapefiles_and_templates', 'california_cropland_map',
                                     'T11SKA_cropland_intersection.shp')
 
@@ -72,7 +81,7 @@ def load_fresno_polygons(args):
 
 
 def format_data_for_training(args, irrig_pixels, nonirrig_pixels):
-
+    # Format data so that it can be inputted to classifier
 
     irrig_ts_flat    = np.reshape(irrig_pixels, (irrig_pixels.shape[0] * irrig_pixels.shape[1], irrig_pixels.shape[2]))
     nonirrig_ts_flat = np.reshape(nonirrig_pixels, (nonirrig_pixels.shape[0] * nonirrig_pixels.shape[1],
@@ -91,13 +100,12 @@ def format_data_for_training(args, irrig_pixels, nonirrig_pixels):
     irrig_ts_flat    = irrig_ts_flat[0:min_num_pixels]
     nonirrig_ts_flat = nonirrig_ts_flat[0:min_num_pixels]
 
-
-    if args.prediction_method == 'baseline' and args.baseline_prediction_shift and training_bool == False:
+    # This is for baseline classifier test -- I have not tested this yet so can be ignored for now.
+    if args.prediction_method == 'baseline' and args.baseline_prediction_shift:
 
         train_rainfall_file = glob.glob(os.path.join(args.base_dir, 'chirps', 'monthly_region_averages',
                                                '*{}*.csv'.format(args.train_region)))[0]
         train_rainfall_ts = np.array(pd.read_csv(train_rainfall_file, index_col=0))[0]
-
         test_rainfall_file = glob.glob(os.path.join(args.base_dir, 'chirps' , 'monthly_region_averages',
                                                      '*{}*.csv'.format(args.test_region)))[0]
         test_rainfall_ts = np.array(pd.read_csv(test_rainfall_file, index_col=0))[0]
@@ -119,6 +127,7 @@ def format_data_for_training(args, irrig_pixels, nonirrig_pixels):
     print('Irrig Samples: {}'.format(len(irrig_ts_flat)))
     print('Non-Irrig Samples: {}'.format(len(nonirrig_ts_flat)))
 
+    # Split data into train and testing fractions and return.
     X_train, X_val, y_train, y_val = train_test_split(np.concatenate((irrig_ts_flat, nonirrig_ts_flat)),
                                                         np.concatenate((irrig_labels, nonirrig_labels)),
                                                         train_size = args.train_size, random_state = args.random_seed)
@@ -129,21 +138,20 @@ def format_data_for_training(args, irrig_pixels, nonirrig_pixels):
 def return_polygon_pixels(args, region, irrig_poly_list, nonirrig_poly_list):
 
 
-
+    # Load abundance maps -- inputs for the classifier
     if args.prediction_method == 'endmember':
         map_file = os.path.join(args.base_dir, 'abundance_maps', region,
                                  '{}_abundancemap_modis_250m_{}_unmixingmethod_automatic_tEMs_'
                                  'outphasetype_{}.tif'.format(region, args.unmixing_method,
                                                               args.outphase_endmember_type))
 
-
+    # Ignore baseline prediction method for now
     elif args.prediction_method == 'baseline':
         map_file = os.path.join(args.base_dir, 'imagery', 'modis',
                                 'evi_{}_16day_2016257_1019241_250m.tif'.format(region))
 
-
+    # Open the abundance maps and mask to the regions where we have ground truth polygons
     with rasterio.open(map_file, 'r') as src:
-
         irrig_pixels, _    = mask(src, irrig_poly_list, nodata=np.nan)
         nonirrig_pixels, _ = mask(src, nonirrig_poly_list, nodata=np.nan)
 
@@ -151,18 +159,18 @@ def return_polygon_pixels(args, region, irrig_poly_list, nonirrig_poly_list):
         nonirrig_pixels    = np.moveaxis(nonirrig_pixels, 0, -1)
 
 
-
+    # Return data from within the polygons
     X_train, X_val, y_train, y_val = format_data_for_training(args, irrig_pixels, nonirrig_pixels)
 
     return X_train, X_val, y_train, y_val
 
 
 class DataGenerator():
-    'This selects and prepares test, training and validation data'
+    'This selects and prepares training and testing data'
     def __init__(self,args):
         self.args = args
 
-
+    # Set up a generator to return the correct training/testing data
     def return_data(self):
 
         amhara_irrig_poly_list, amhara_nonirrig_poly_list = load_amhara_polygons(self.args)
@@ -207,8 +215,6 @@ class DataGenerator():
 
             X_train = np.concatenate((X_train_amhara, X_train_fresno))
             y_train = np.concatenate((y_train_amhara, y_train_fresno))
-            # np.random.shuffle(X_train)
-            # np.random.shuffle(y_train)
 
 
         if self.args.test_region == 'fresno':
@@ -226,7 +232,7 @@ class DataGenerator():
 
 
 
-        return X_train, X_val, y_train, y_val,
+        return X_train, X_val, y_train, y_val
 
 
 
