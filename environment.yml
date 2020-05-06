@@ -1,0 +1,25 @@
+name: gis
+channels:
+- anaconda
+- conda-forge
+dependencies:
+- python=3.6
+- matplotlib
+- rasterio
+#- gdal
+- numpy
+- shapely
+- fiona
+- geopandas
+- pandas
+- pycrs
+- xlrd
+- ipdb
+- keras
+- seaborn
+- scikit-learn
+- google-cloud-storage
+- cvxopt
+
+- pip:
+    - pysptools
