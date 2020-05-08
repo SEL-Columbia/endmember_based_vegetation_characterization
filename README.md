@@ -1,5 +1,5 @@
 # vegetation_detection
-Other data sources:
+Data sources:
 
 CHIRPS
 
