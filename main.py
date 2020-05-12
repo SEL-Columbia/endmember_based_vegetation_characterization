@@ -70,8 +70,6 @@ if __name__ == '__main__':
         forest = RandomForestClassifier(n_estimators=100, random_state=0, max_depth=2, verbose=True,
                                         n_jobs=3, class_weight='balanced')
 
-
-
         print('Fit classifier')
         forest.fit(X_train, y_train)
         print('Importance of features for prediction: {}'.format(forest.feature_importances_))

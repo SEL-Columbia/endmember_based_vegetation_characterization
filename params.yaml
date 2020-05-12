@@ -4,23 +4,23 @@ unmixing_region: 'ethiopia'
 rainfall_cluster: False
 rainfall_cluster_plotting: False
 
-spectral_unmixing: True
-calc_new_abundance_map: True
+spectral_unmixing: False
+calc_new_abundance_map: False
 unmixing_method: 'fcls'
-num_samples: 20000
-num_clusters: 1000 #800
+num_samples: 20000 #20000
+num_clusters: 1000 #1000
 pca_components: 4
 
-calculate_new_endmembers: True
-plotting_endmembers: False
+calculate_new_endmembers: False
+plotting_endmembers: True
 outphase_endmember_type: 'single' # either single or double
 
-irrig_prediction: False
+irrig_prediction: True
 prediction_method: endmember # either endmember or baseline
 baseline_prediction_shift: False
 equal_training_fracs: True
 train_size: 0.8
-train_region: 'both' #either fresno, amhara, catalonia, or ...
+train_region: 'both' #either fresno, amhara, catalonia; both = fresno + amhara
 test_region:  'catalonia' #either fresno or amhara
 
 

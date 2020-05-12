@@ -124,7 +124,7 @@ def cluster_rainfall(args):
     zero_indices = np.mean(rainfall_ts, axis=1) != 0
     rainfall_ts = rainfall_ts[zero_indices]
 
-    # Set up a clustering model and cluster the raindfall timeseries
+    # Set up a clustering model and cluster the rainfall timeseries
     kmeans = KMeans(n_clusters=n_clusters, random_state=0).fit(rainfall_ts)
     cluster_centers = kmeans.cluster_centers_
 

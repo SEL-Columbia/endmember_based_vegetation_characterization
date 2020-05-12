@@ -20,6 +20,7 @@ from gurobipy import *
 from rasterio.mask import mask
 import geopandas as gpd
 from rasterio.merge import merge
+import time
 
 
 def pca_transform(args, evi_img):
@@ -29,23 +30,22 @@ def pca_transform(args, evi_img):
     n_components = args.pca_components
     evi_img_flattened = np.transpose(np.reshape(evi_img, (evi_img.shape[0], evi_img.shape[1] * evi_img.shape[2])))
 
-    # Only take non-zero  timeseries, limit to max_pixel num
+    # Only take non-zero  timeseries
     max_pixels = np.min((args.num_samples, len(evi_img_flattened)))
-    evi_img_flattened = evi_img_flattened[np.mean(evi_img_flattened, axis = 1)!= 0][0][0:max_pixels]
+    evi_img_flattened = evi_img_flattened[np.mean(evi_img_flattened, axis = 1)!= 0]
 
     if args.shuffle:
         np.random.seed(args.random_seed)
         np.random.shuffle(evi_img_flattened)
+
+    # Limit to max_pixel num
+    evi_img_flattened = evi_img_flattened[0:max_pixels]
 
 
     # Initialize a PCA model and fit to the data
     pca = PCA(n_components= n_components)
 
     principalComponents = pca.fit_transform(evi_img_flattened)
-    print(len(principalComponents))
-
-
-    # [0:max_pixels]
 
 
     return principalComponents, pca, evi_img_flattened
@@ -135,11 +135,15 @@ def interpolate_rainfall(args, monthly_rainfall_ts):
 def find_endmembers(args, cluster_timeseries, rainfall_ts, region_index):
 
     xrange = len(rainfall_ts)
+
+    # Normalize rainfall
+    rainfall_ts = normalize(rainfall_ts)
+
     # 1 year for MODIS
     single_year_rainfall_ts = rainfall_ts[0:23]
 
     # Determine number of peaks of the rainfall timeseries
-    peaks, peaks_dict = find_peaks(single_year_rainfall_ts, prominence=0.5*np.max(single_year_rainfall_ts))
+    peaks, peaks_dict = find_peaks(single_year_rainfall_ts, prominence=0.4)
     num_peaks_per_year = len(peaks)
 
     # Only deal with regions that have 1 or 2 peaks for now
@@ -152,6 +156,8 @@ def find_endmembers(args, cluster_timeseries, rainfall_ts, region_index):
     # Calculate error for regions with 1 peak in the dominant rainfall pattern
     # Still TBD the the best rainfall shifting approach for determining the out of phase endmember
     if num_peaks_per_year == 1:
+        print('Single rainfall peak per year')
+
         rainfall_ts_4mo_lag = np.concatenate((rainfall_ts[-8::], rainfall_ts[0:-8]))
         rainfall_ts_7mo_lag = np.concatenate((rainfall_ts[-12::], rainfall_ts[0:-12]))
         rainfall_ts_10mo_lag = np.concatenate((rainfall_ts[-20::], rainfall_ts[0:-20]))
@@ -160,11 +166,11 @@ def find_endmembers(args, cluster_timeseries, rainfall_ts, region_index):
         outphase_error = np.zeros((cluster_timeseries.shape[0], 2))
 
         for i in range(cluster_timeseries.shape[0]):
-            inphase_error[i]        = mean_squared_error(normalize(rainfall_ts_1mo_lag),
+            inphase_error[i]        = mean_squared_error(rainfall_ts_1mo_lag,
                                                          normalize(cluster_timeseries[i]))
-            outphase_error[i, 0]    = mean_squared_error(normalize(rainfall_ts_4mo_lag),
+            outphase_error[i, 0]    = mean_squared_error(rainfall_ts_4mo_lag,
                                                          normalize(cluster_timeseries[i]))
-            outphase_error[i, 1]    = mean_squared_error(normalize(rainfall_ts_7mo_lag),
+            outphase_error[i, 1]    = mean_squared_error(rainfall_ts_7mo_lag,
                                                          normalize(cluster_timeseries[i]))
             # outphase_error[i, 2]    = mean_squared_error(normalize(rainfall_ts_10mo_lag),
             #                                              normalize(cluster_timeseries[i]))
@@ -172,6 +178,8 @@ def find_endmembers(args, cluster_timeseries, rainfall_ts, region_index):
 
     # Similar process, except for regions with two peaks in the dominant rainfall pattern
     elif num_peaks_per_year == 2:
+        print('Double rainfall peaks per year')
+
 
         # We want to shift only a single peak to find the out pf phase endmember, as it is unlikely a region will
         # have 4 discernible vegetation peaks (2 in phase + 2 out of phase). It is more likely that there will be a
@@ -204,10 +212,10 @@ def find_endmembers(args, cluster_timeseries, rainfall_ts, region_index):
         outphase_error = np.zeros((cluster_timeseries.shape[0], 2))
 
         for i in range(cluster_timeseries.shape[0]):
-            inphase_error[i]     = mean_squared_error(normalize(rainfall_ts_1mo_lag), normalize(cluster_timeseries[i]))
-            outphase_error[i, 0] = mean_squared_error(normalize(single_season_rain_forward_1mo_lag),
+            inphase_error[i]     = mean_squared_error(rainfall_ts_1mo_lag, normalize(cluster_timeseries[i]))
+            outphase_error[i, 0] = mean_squared_error(single_season_rain_forward_1mo_lag,
                                                       normalize(cluster_timeseries[i]))
-            outphase_error[i, 1] = mean_squared_error(normalize(single_season_rain_reverse_1mo_lag),
+            outphase_error[i, 1] = mean_squared_error(single_season_rain_reverse_1mo_lag,
                                                       normalize(cluster_timeseries[i]))
 
 
@@ -285,7 +293,11 @@ def spectral_unmixing_main(args, img_src, endmember_array, unmixing_method):
     endmember_array = np.transpose(np.array(endmember_array))
 
 
-    print('Cropping image')
+
+
+    print('Cropping image and spectral unmixing, starting timer')
+    t = time.time()
+
     for region in range(n_regional_clusters):
 
         # Crop image to the regional clusters
@@ -339,6 +351,9 @@ def spectral_unmixing_main(args, img_src, endmember_array, unmixing_method):
         with rasterio.open(out_file_path, 'w+', **img_meta) as dest:
             dest.write(abundance_map)
 
+    elapsed = (time.time() - t)
+
+    print('Elapsed time for abundance map creation: {}s'.format(elapsed))
     # Merge the abundance maps into a mosaic
     merge_regional_abundance_maps(args)
 
@@ -407,7 +422,6 @@ def return_endmembers(args, src):
             print('Calculating endmembers for {}, Region {}'.format(args.unmixing_region, region_index))
 
             masked_evi_img, img_transform = mask(src, [region_polygons['geometry'].iloc[region_index]], nodata=0)
-
 
             print('PCA Transform')
             principalComponents, pca, evi_img_flattened = pca_transform(args, masked_evi_img)

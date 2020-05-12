@@ -54,10 +54,10 @@ def load_fresno_polygons(args):
     # Here, these correspond to in phase and out of phase vegetation growth
 
     crop_labels = ['G', 'R', 'F', 'P', 'T', 'D', 'C', 'V', 'I', 'NC', 'NV', 'NR', 'NB']
-    irrig_polys_path = os.path.join(args.base_dir, 'shapefiles_and_templates', 'california_cropland_map',
+    irrig_polys_path = os.path.join(args.base_dir, 'shapefiles_and_templates', 'california',
                                     'T11SKA_cropland_intersection.shp')
 
-    nonirrig_polys_path = os.path.join(args.base_dir, 'shapefiles_and_templates', 'california_cropland_map',
+    nonirrig_polys_path = os.path.join(args.base_dir, 'shapefiles_and_templates', 'california',
                                        'fresno_cropland_intersection.shp')
 
     irrig_crop_shp = gpd.read_file(irrig_polys_path).to_crs('EPSG:{}'.format(args.fresno_epsg))
@@ -87,8 +87,10 @@ def format_data_for_training(args, irrig_pixels, nonirrig_pixels):
     nonirrig_ts_flat = np.reshape(nonirrig_pixels, (nonirrig_pixels.shape[0] * nonirrig_pixels.shape[1],
                                                     nonirrig_pixels.shape[2]))
 
+
     irrig_ts_flat    = irrig_ts_flat[~np.isnan(irrig_ts_flat).any(axis = 1)]
     nonirrig_ts_flat = nonirrig_ts_flat[~np.isnan(nonirrig_ts_flat).any(axis = 1)]
+
 
     # Shuffle and clip
     np.random.seed(args.random_seed)
@@ -100,26 +102,24 @@ def format_data_for_training(args, irrig_pixels, nonirrig_pixels):
     irrig_ts_flat    = irrig_ts_flat[0:min_num_pixels]
     nonirrig_ts_flat = nonirrig_ts_flat[0:min_num_pixels]
 
-    # This is for baseline classifier test -- I have not tested this yet so can be ignored for now.
-    if args.prediction_method == 'baseline' and args.baseline_prediction_shift:
-
-        train_rainfall_file = glob.glob(os.path.join(args.base_dir, 'chirps', 'monthly_region_averages',
-                                               '*{}*.csv'.format(args.train_region)))[0]
-        train_rainfall_ts = np.array(pd.read_csv(train_rainfall_file, index_col=0))[0]
-        test_rainfall_file = glob.glob(os.path.join(args.base_dir, 'chirps' , 'monthly_region_averages',
-                                                     '*{}*.csv'.format(args.test_region)))[0]
-        test_rainfall_ts = np.array(pd.read_csv(test_rainfall_file, index_col=0))[0]
-
-        train_peak_indices = find_peaks(train_rainfall_ts, height=0.5 * np.max(train_rainfall_ts))[0]
-        test_peak_indices  = find_peaks(test_rainfall_ts, height=0.5 * np.max(test_rainfall_ts))[0]
-
-        shift = int(np.mean(test_peak_indices - train_peak_indices))
-
-        print('Shifting full EVI stack by {} months'.format(shift))
-        irrig_ts_flat = np.concatenate((irrig_ts_flat[2*shift::], irrig_ts_flat[0:2*shift]), axis=1)
-        nonirrig_ts_flat = np.concatenate((nonirrig_ts_flat[2*shift::], nonirrig_ts_flat[0:2*shift]), axis=1)
-
-
+    #    This is for baseline classifier test -- I have not tested this yet so can be ignored for now.
+    # if args.prediction_method == 'baseline' and args.baseline_prediction_shift:
+    #
+    #     train_rainfall_file = glob.glob(os.path.join(args.base_dir, 'chirps', 'monthly_region_averages',
+    #                                            '*{}*.csv'.format(args.train_region)))[0]
+    #     train_rainfall_ts = np.array(pd.read_csv(train_rainfall_file, index_col=0))[0]
+    #     test_rainfall_file = glob.glob(os.path.join(args.base_dir, 'chirps' , 'monthly_region_averages',
+    #                                                  '*{}*.csv'.format(args.test_region)))[0]
+    #     test_rainfall_ts = np.array(pd.read_csv(test_rainfall_file, index_col=0))[0]
+    #
+    #     train_peak_indices = find_peaks(train_rainfall_ts, height=0.5 * np.max(train_rainfall_ts))[0]
+    #     test_peak_indices  = find_peaks(test_rainfall_ts, height=0.5 * np.max(test_rainfall_ts))[0]
+    #
+    #     shift = int(np.mean(test_peak_indices - train_peak_indices))
+    #
+    #     print('Shifting full EVI stack by {} months'.format(shift))
+    #     irrig_ts_flat = np.concatenate((irrig_ts_flat[2*shift::], irrig_ts_flat[0:2*shift]), axis=1)
+    #     nonirrig_ts_flat = np.concatenate((nonirrig_ts_flat[2*shift::], nonirrig_ts_flat[0:2*shift]), axis=1)
 
     irrig_labels = np.ones(len(irrig_ts_flat))
     nonirrig_labels = np.zeros(len(nonirrig_ts_flat))
@@ -131,6 +131,7 @@ def format_data_for_training(args, irrig_pixels, nonirrig_pixels):
     X_train, X_val, y_train, y_val = train_test_split(np.concatenate((irrig_ts_flat, nonirrig_ts_flat)),
                                                         np.concatenate((irrig_labels, nonirrig_labels)),
                                                         train_size = args.train_size, random_state = args.random_seed)
+
 
     return X_train, X_val, y_train, y_val
 
