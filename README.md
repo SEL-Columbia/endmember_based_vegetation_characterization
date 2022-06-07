@@ -12,7 +12,34 @@ The resulting endmember abundances at 250m resolution are used to train a classi
 
 ## Repository Structure
 
+```
+ethiopia_irrigation_detection
+├── chirps_processing.py
+├── dataloader.py
+├── environment.yml
+├── main.py
+├── model.py
+├── params.yaml
+├── plotting.py
+├── spectral_unmixing.py
+```
+
 ## Repository Description
 
+Note: Each file described below also contains substantial line-by-line documentation. 
 
+* `chirps_processing.py`: This script contains the functions necessary for processing CHIRPS rainfall estimates. These functions include those for loading data, clustering the rainfall timeseries, and extracting tEMs in-phase and out-of-phase with rainfall. 
 
+* `dataloader.py`: This script contains functions necessary for reading in abundance maps, associating certain pixels in the maps with irrigated/non-irrigated labels, and preparing these labeled samples for model training. 
+
+* `environment.yml`: This file specifies the Python packages required to run the code contained in this repository. Users can create the necessary Pyhton environment via `conda env create -f environment.yml`.
+
+* `main.py`:  This is the main script for training the neural network (NN) based irrigation detection model. Run this script to execute the repository's functionality. 
+
+* `model.py`: This file contains code that instantiates a simple deep NN to serve as the irrigation classification model. 
+
+* `params.yaml`: This file contains user-specified parameters for model training.
+
+* `plotting.py`: This script contains functions for plotting vegetation timeseries.
+
+* `spectral_unmixing.py`:  This script contains code for applying a spectral unmixing model to determine the contribution of certain temproal endmembers to vegetation phenologies. See [Small (2012)](https://www.sciencedirect.com/science/article/pii/S0034425712002349) for a full description of the process of using endmember-based unmixing approaches for spatiotemporal vegetation characterization. 
